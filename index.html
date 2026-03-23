@@ -3,10 +3,628 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zeiterfassung (Time Recording)</title>
+    <title>Wochen-Timer</title>
+    <style>
+      :root {
+        --bg: #f8fafc;
+        --card: #ffffff;
+        --text: #0f172a;
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --dark: #0f172a;
+        --dark-2: #1e293b;
+        --soft: #f1f5f9;
+        --warn-bg: #fefce8;
+        --warn-border: #fcd34d;
+        --warn-text: #854d0e;
+        --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+        --radius: 24px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      .title {
+        font-size: 32px;
+        font-weight: 800;
+        margin: 0 0 6px;
+      }
+
+      .subtitle {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: var(--dark);
+        color: white;
+        font-size: 14px;
+        white-space: nowrap;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 24px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+      }
+
+      .card-header {
+        padding: 24px 24px 0;
+      }
+
+      .card-title {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .card-content {
+        padding: 24px;
+      }
+
+      .timer-display {
+        background: var(--dark);
+        color: white;
+        border-radius: 28px;
+        padding: 28px;
+        text-align: center;
+      }
+
+      .timer-status {
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        font-size: 12px;
+        color: #cbd5e1;
+      }
+
+      .timer-value {
+        margin-top: 12px;
+        font-size: 56px;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .timer-meta {
+        margin-top: 12px;
+        color: #cbd5e1;
+        font-size: 14px;
+      }
+
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      button {
+        border: 1px solid transparent;
+        border-radius: 16px;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+
+      button:hover:not(:disabled) { transform: translateY(-1px); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .btn-primary { background: var(--dark); color: white; }
+      .btn-secondary { background: #e2e8f0; color: var(--text); }
+      .btn-outline { background: white; color: var(--text); border-color: var(--border); }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      .stat-box, .session-item, .week-item, .empty-box, .active-box {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: white;
+      }
+
+      .stat-box { padding: 16px; }
+      .stat-label { color: var(--muted); font-size: 14px; }
+      .stat-value { margin-top: 6px; font-size: 28px; font-weight: 700; }
+
+      .stack { display: flex; flex-direction: column; gap: 12px; }
+
+      .session-item, .active-box { padding: 16px; }
+      .session-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .session-title { font-weight: 600; }
+      .session-subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+      .pill {
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        background: white;
+        white-space: nowrap;
+      }
+      .pill.soft { background: var(--soft); border-color: transparent; }
+
+      .empty-box {
+        padding: 24px;
+        border-style: dashed;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .week-section { margin-top: 24px; }
+      .week-item { padding: 16px; }
+      .week-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .week-label { font-size: 20px; font-weight: 700; }
+      .week-range { color: var(--muted); font-size: 14px; margin-top: 4px; }
+      .week-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .week-total { font-size: 20px; font-weight: 700; }
+      .bar {
+        margin-top: 16px;
+        height: 12px;
+        background: var(--soft);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .bar-fill {
+        height: 100%;
+        background: var(--dark);
+        width: 0;
+        transition: width 0.35s ease;
+      }
+
+      .warning {
+        margin-top: 24px;
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 14px;
+      }
+
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: 1fr; }
+        .header { flex-direction: column; align-items: flex-start; }
+      }
+
+      @media (max-width: 640px) {
+        .container { padding: 16px; }
+        .timer-value { font-size: 42px; }
+        .stats { grid-template-columns: 1fr; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <div class="container">
+      <div class="header">
+        <div>
+          <h1 class="title">Wochen-Timer</h1>
+          <p class="subtitle">Starte und stoppe Zeiten, sammle Sessions und behalte deine Stunden pro Kalenderwoche im Blick.</p>
+        </div>
+        <div class="badge" id="currentWeekBadge">Aktuelle Woche</div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Timer</h2>
+          </div>
+          <div class="card-content">
+            <div class="timer-display">
+              <div class="timer-status" id="timerStatus">Bereit</div>
+              <div class="timer-value" id="timerValue">00:00:00</div>
+              <div class="timer-meta" id="timerMeta">Noch keine aktive Session</div>
+            </div>
+
+            <div class="button-row">
+              <button class="btn-primary" id="startBtn">Start</button>
+              <button class="btn-secondary" id="stopBtn" disabled>Stopp</button>
+              <button class="btn-outline" id="exportBtn">Export</button>
+              <button class="btn-outline" id="resetBtn">Alles zurücksetzen</button>
+            </div>
+
+            <div class="stats">
+              <div class="stat-box">
+                <div class="stat-label">Heute</div>
+                <div class="stat-value" id="todayTotal">0 Min</div>
+              </div>
+              <div class="stat-box">
+                <div class="stat-label">Diese KW</div>
+                <div class="stat-value" id="currentWeekTotal">0 Min</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Letzte Sessions</h2>
+          </div>
+          <div class="card-content">
+            <div class="stack" id="sessionsList"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card week-section">
+        <div class="card-header">
+          <h2 class="card-title">Wochenübersicht</h2>
+        </div>
+        <div class="card-content">
+          <div class="stack" id="weekList"></div>
+        </div>
+      </div>
+
+      <div class="warning">
+        ⚠️ Achtung: Die Aufzeichnungen werden im Browser per localStorage gespeichert. Nutze den Export-Button, um deine Session an einem anderen Ort zu sichern.
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "weekly-time-tracker-v1";
+      const state = {
+        sessions: [],
+        activeStart: null,
+      };
+
+      const els = {
+        currentWeekBadge: document.getElementById("currentWeekBadge"),
+        timerStatus: document.getElementById("timerStatus"),
+        timerValue: document.getElementById("timerValue"),
+        timerMeta: document.getElementById("timerMeta"),
+        todayTotal: document.getElementById("todayTotal"),
+        currentWeekTotal: document.getElementById("currentWeekTotal"),
+        sessionsList: document.getElementById("sessionsList"),
+        weekList: document.getElementById("weekList"),
+        startBtn: document.getElementById("startBtn"),
+        stopBtn: document.getElementById("stopBtn"),
+        exportBtn: document.getElementById("exportBtn"),
+        resetBtn: document.getElementById("resetBtn"),
+      };
+
+      function pad(n) {
+        return String(n).padStart(2, "0");
+      }
+
+      function formatDuration(ms) {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = totalSeconds % 60;
+        return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+      }
+
+      function formatMinutes(ms) {
+        const totalMinutes = Math.round(ms / 60000);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (hours === 0) return `${minutes} Min`;
+        if (minutes === 0) return `${hours} Std`;
+        return `${hours} Std ${minutes} Min`;
+      }
+
+      function startOfDay(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+
+      function getISOWeekInfo(dateInput) {
+        const date = new Date(dateInput);
+        const tmp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        const dayNum = tmp.getUTCDay() || 7;
+        tmp.setUTCDate(tmp.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+        const week = Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7);
+        return { year: tmp.getUTCFullYear(), week };
+      }
+
+      function getWeekLabel(dateInput) {
+        const { year, week } = getISOWeekInfo(dateInput);
+        return `${year}-KW${pad(week)}`;
+      }
+
+      function getWeekRangeFromLabel(label) {
+        const match = label.match(/^(\d{4})-KW(\d{2})$/);
+        if (!match) return label;
+        const year = Number(match[1]);
+        const week = Number(match[2]);
+        const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+        const dow = simple.getUTCDay() || 7;
+        const monday = new Date(simple);
+        if (dow <= 4) {
+          monday.setUTCDate(simple.getUTCDate() - dow + 1);
+        } else {
+          monday.setUTCDate(simple.getUTCDate() + 8 - dow);
+        }
+        const sunday = new Date(monday);
+        sunday.setUTCDate(monday.getUTCDate() + 6);
+        const formatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" });
+        return `${formatter.format(monday)} – ${formatter.format(sunday)}`;
+      }
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return;
+          const parsed = JSON.parse(raw);
+          state.sessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+          state.activeStart = parsed.activeStart || null;
+        } catch {
+          state.sessions = [];
+          state.activeStart = null;
+        }
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+          sessions: state.sessions,
+          activeStart: state.activeStart,
+        }));
+      }
+
+      function getLiveDuration() {
+        return state.activeStart ? Date.now() - new Date(state.activeStart).getTime() : 0;
+      }
+
+      function getTodayTotal() {
+        const today = startOfDay(new Date());
+        const tomorrow = new Date(today);
+        tomorrow.setDate(today.getDate() + 1);
+        let total = 0;
+
+        state.sessions.forEach((s) => {
+          const start = new Date(s.start);
+          const end = new Date(s.end);
+          if (start >= today && start < tomorrow) total += Math.max(0, end - start);
+        });
+
+        if (state.activeStart) {
+          const start = new Date(state.activeStart);
+          if (start >= today && start < tomorrow) total += getLiveDuration();
+        }
+
+        return total;
+      }
+
+      function getWeekData() {
+        const map = new Map();
+
+        state.sessions.forEach((session) => {
+          const start = new Date(session.start);
+          const end = new Date(session.end);
+          const duration = Math.max(0, end - start);
+          const key = getWeekLabel(start);
+          const existing = map.get(key) || { total: 0, entries: 0 };
+          map.set(key, {
+            total: existing.total + duration,
+            entries: existing.entries + 1,
+          });
+        });
+
+        if (state.activeStart) {
+          const start = new Date(state.activeStart);
+          const key = getWeekLabel(start);
+          const existing = map.get(key) || { total: 0, entries: 0 };
+          map.set(key, {
+            total: existing.total + getLiveDuration(),
+            entries: existing.entries + 1,
+          });
+        }
+
+        return Array.from(map.entries())
+          .map(([label, value]) => ({
+            label,
+            range: getWeekRangeFromLabel(label),
+            total: value.total,
+            entries: value.entries,
+          }))
+          .sort((a, b) => b.label.localeCompare(a.label));
+      }
+
+      function renderSessions() {
+        const liveDuration = getLiveDuration();
+        const fragment = [];
+
+        if (state.activeStart) {
+          fragment.push(`
+            <div class="active-box">
+              <div class="session-top">
+                <div>
+                  <div class="session-title">Aktive Session</div>
+                  <div class="session-subtitle">${new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "medium" }).format(new Date(state.activeStart))}</div>
+                </div>
+                <div class="pill soft">${formatMinutes(liveDuration)}</div>
+              </div>
+            </div>
+          `);
+        }
+
+        if (state.sessions.length === 0 && !state.activeStart) {
+          fragment.push('<div class="empty-box">Noch keine Sessions vorhanden.</div>');
+        } else {
+          state.sessions.slice(0, 8).forEach((s) => {
+            const duration = new Date(s.end) - new Date(s.start);
+            fragment.push(`
+              <div class="session-item">
+                <div class="session-top">
+                  <div>
+                    <div class="session-title">${new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(s.start))}</div>
+                    <div class="session-subtitle">${new Intl.DateTimeFormat("de-DE", { timeStyle: "short" }).format(new Date(s.start))} – ${new Intl.DateTimeFormat("de-DE", { timeStyle: "short" }).format(new Date(s.end))}</div>
+                  </div>
+                  <div class="pill">${formatMinutes(duration)}</div>
+                </div>
+              </div>
+            `);
+          });
+        }
+
+        els.sessionsList.innerHTML = fragment.join("");
+      }
+
+      function renderWeeks() {
+        const weekData = getWeekData();
+        if (weekData.length === 0) {
+          els.weekList.innerHTML = '<div class="empty-box">Sobald du Zeiten stoppst, erscheinen sie hier gesammelt nach Kalenderwoche.</div>';
+          return;
+        }
+
+        const maxWeek = Math.max(...weekData.map((w) => w.total), 1);
+        els.weekList.innerHTML = weekData.map((week) => `
+          <div class="week-item">
+            <div class="week-top">
+              <div>
+                <div class="week-label">${week.label}</div>
+                <div class="week-range">${week.range}</div>
+              </div>
+              <div class="week-right">
+                <div class="pill soft">${week.entries} Session${week.entries !== 1 ? "s" : ""}</div>
+                <div class="week-total">${formatMinutes(week.total)}</div>
+              </div>
+            </div>
+            <div class="bar">
+              <div class="bar-fill" style="width: ${(week.total / maxWeek) * 100}%"></div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      function renderHeaderAndStats() {
+        const currentWeekLabel = getWeekLabel(new Date());
+        const weekData = getWeekData();
+        const currentWeekTotal = weekData.find((w) => w.label === currentWeekLabel)?.total || 0;
+        const liveDuration = getLiveDuration();
+        const isRunning = Boolean(state.activeStart);
+
+        els.currentWeekBadge.textContent = `Aktuelle Woche: ${currentWeekLabel}`;
+        els.timerStatus.textContent = isRunning ? "Läuft gerade" : "Bereit";
+        els.timerValue.textContent = formatDuration(liveDuration);
+        els.timerMeta.textContent = isRunning
+          ? `Gestartet um ${new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date(state.activeStart))}`
+          : "Noch keine aktive Session";
+
+        els.todayTotal.textContent = formatMinutes(getTodayTotal());
+        els.currentWeekTotal.textContent = formatMinutes(currentWeekTotal);
+        els.startBtn.disabled = isRunning;
+        els.stopBtn.disabled = !isRunning;
+      }
+
+      function render() {
+        renderHeaderAndStats();
+        renderSessions();
+        renderWeeks();
+      }
+
+      function startTimer() {
+        if (state.activeStart) return;
+        state.activeStart = new Date().toISOString();
+        saveState();
+        render();
+      }
+
+      function stopTimer() {
+        if (!state.activeStart) return;
+        state.sessions.unshift({
+          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+          start: state.activeStart,
+          end: new Date().toISOString(),
+        });
+        state.activeStart = null;
+        saveState();
+        render();
+      }
+
+      function exportData() {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          storageKey: STORAGE_KEY,
+          activeStart: state.activeStart,
+          sessions: state.sessions,
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const date = new Intl.DateTimeFormat("sv-SE", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date()).replaceAll("-", "");
+
+        a.href = url;
+        a.download = `wochen-timer-export-${date}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function resetAll() {
+        const confirmed = window.confirm("Möchtest du wirklich alle Sessions und die aktive Zeit zurücksetzen?");
+        if (!confirmed) return;
+        state.sessions = [];
+        state.activeStart = null;
+        saveState();
+        render();
+      }
+
+      els.startBtn.addEventListener("click", startTimer);
+      els.stopBtn.addEventListener("click", stopTimer);
+      els.exportBtn.addEventListener("click", exportData);
+      els.resetBtn.addEventListener("click", resetAll);
+
+      loadState();
+      render();
+      setInterval(render, 1000);
+    </script>
   </body>
 </html>
