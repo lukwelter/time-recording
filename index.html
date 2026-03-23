@@ -172,6 +172,25 @@
         gap: 12px;
       }
 
+      .session-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .delete-btn {
+        background: white;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+        padding: 8px 12px;
+        border-radius: 999px;
+      }
+
+      .delete-btn:hover:not(:disabled) {
+        background: #fef2f2;
+      }
+
       .session-title { font-weight: 600; }
       .session-subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
       .pill {
@@ -306,7 +325,7 @@
       </div>
 
       <div class="warning">
-        Achtung: Die Aufzeichnungen werden im Browser per "localStorage" gespeichert. Nutze den Export-Button, um deine Session an einem anderen Ort zu sichern.
+        <strong>Achtung:</strong> Die Aufzeichnungen werden im Browser per "localStorage" gespeichert. Nutze den Export-Button, um deine Session an einem anderen Ort zu sichern.
       </div>
     </div>
 
@@ -398,7 +417,12 @@
           const raw = localStorage.getItem(STORAGE_KEY);
           if (!raw) return;
           const parsed = JSON.parse(raw);
-          state.sessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+          state.sessions = Array.isArray(parsed.sessions)
+            ? parsed.sessions.map((s) => ({
+                ...s,
+                id: s.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())),
+              }))
+            : [];
           state.activeStart = parsed.activeStart || null;
         } catch {
           state.sessions = [];
@@ -493,7 +517,7 @@
         if (state.sessions.length === 0 && !state.activeStart) {
           fragment.push('<div class="empty-box">Noch keine Sessions vorhanden.</div>');
         } else {
-          state.sessions.slice(0, 8).forEach((s) => {
+          state.sessions.slice(0, 4).forEach((s) => {
             const duration = new Date(s.end) - new Date(s.start);
             fragment.push(`
               <div class="session-item">
@@ -502,7 +526,10 @@
                     <div class="session-title">${new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(s.start))}</div>
                     <div class="session-subtitle">${new Intl.DateTimeFormat("de-DE", { timeStyle: "short" }).format(new Date(s.start))} – ${new Intl.DateTimeFormat("de-DE", { timeStyle: "short" }).format(new Date(s.end))}</div>
                   </div>
-                  <div class="pill">${formatMinutes(duration)}</div>
+                  <div class="session-actions">
+                    <div class="pill">${formatMinutes(duration)}</div>
+                    <button class="delete-btn" data-delete-session-id="${s.id}" type="button">Löschen</button>
+                  </div>
                 </div>
               </div>
             `);
@@ -510,6 +537,12 @@
         }
 
         els.sessionsList.innerHTML = fragment.join("");
+
+        els.sessionsList.querySelectorAll("[data-delete-session-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            deleteSession(button.getAttribute("data-delete-session-id"));
+          });
+        });
       }
 
       function renderWeeks() {
@@ -580,6 +613,15 @@
           end: new Date().toISOString(),
         });
         state.activeStart = null;
+        saveState();
+        render();
+      }
+
+      function deleteSession(sessionId) {
+        const confirmed = window.confirm("Möchtest du diese Session wirklich löschen?");
+        if (!confirmed) return;
+
+        state.sessions = state.sessions.filter((entry) => String(entry.id) !== String(sessionId));
         saveState();
         render();
       }
