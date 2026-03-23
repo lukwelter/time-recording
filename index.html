@@ -227,6 +227,56 @@
         gap: 12px;
       }
       .week-total { font-size: 20px; font-weight: 700; }
+      .week-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex: 1;
+        flex-wrap: wrap;
+      }
+      .week-toggle {
+        background: white;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 8px 12px;
+        white-space: nowrap;
+      }
+      .week-details {
+        margin-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .week-session-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 14px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: #fff;
+      }
+      .week-session-left {
+        min-width: 0;
+      }
+      .week-session-title {
+        font-weight: 600;
+      }
+      .week-session-subtitle {
+        color: var(--muted);
+        font-size: 14px;
+        margin-top: 4px;
+      }
+      .week-session-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
       .bar {
         margin-top: 16px;
         height: 12px;
@@ -334,6 +384,7 @@
       const state = {
         sessions: [],
         activeStart: null,
+        expandedWeeks: {},
       };
 
       const els = {
@@ -469,20 +520,22 @@
           const end = new Date(session.end);
           const duration = Math.max(0, end - start);
           const key = getWeekLabel(start);
-          const existing = map.get(key) || { total: 0, entries: 0 };
+          const existing = map.get(key) || { total: 0, entries: 0, sessions: [] };
           map.set(key, {
             total: existing.total + duration,
             entries: existing.entries + 1,
+            sessions: [...existing.sessions, { ...session, duration }],
           });
         });
 
         if (state.activeStart) {
           const start = new Date(state.activeStart);
           const key = getWeekLabel(start);
-          const existing = map.get(key) || { total: 0, entries: 0 };
+          const existing = map.get(key) || { total: 0, entries: 0, sessions: [] };
           map.set(key, {
             total: existing.total + getLiveDuration(),
             entries: existing.entries + 1,
+            sessions: existing.sessions,
           });
         }
 
@@ -492,6 +545,7 @@
             range: getWeekRangeFromLabel(label),
             total: value.total,
             entries: value.entries,
+            sessions: value.sessions.sort((a, b) => new Date(b.start) - new Date(a.start)),
           }))
           .sort((a, b) => b.label.localeCompare(a.label));
       }
@@ -553,23 +607,63 @@
         }
 
         const maxWeek = Math.max(...weekData.map((w) => w.total), 1);
-        els.weekList.innerHTML = weekData.map((week) => `
-          <div class="week-item">
-            <div class="week-top">
-              <div>
-                <div class="week-label">${week.label}</div>
-                <div class="week-range">${week.range}</div>
+        els.weekList.innerHTML = weekData.map((week) => {
+          const isExpanded = Boolean(state.expandedWeeks[week.label]);
+          const details = isExpanded
+            ? `
+              <div class="week-details">
+                ${week.sessions.length === 0
+                  ? '<div class="empty-box">In dieser Kalenderwoche gibt es noch keine gestoppten Sessions.</div>'
+                  : week.sessions.map((session) => `
+                    <div class="week-session-item">
+                      <div class="week-session-left">
+                        <div class="week-session-title">${new Intl.DateTimeFormat("de-DE", { dateStyle: "medium" }).format(new Date(session.start))}</div>
+                        <div class="week-session-subtitle">${new Intl.DateTimeFormat("de-DE", { timeStyle: "short" }).format(new Date(session.start))} – ${new Intl.DateTimeFormat("de-DE", { timeStyle: "short" }).format(new Date(session.end))}</div>
+                      </div>
+                      <div class="week-session-actions">
+                        <div class="pill">${formatMinutes(session.duration)}</div>
+                        <button class="delete-btn" data-delete-session-id="${session.id}" type="button">Löschen</button>
+                      </div>
+                    </div>
+                  `).join("")}
               </div>
-              <div class="week-right">
-                <div class="pill soft">${week.entries} Session${week.entries !== 1 ? "s" : ""}</div>
-                <div class="week-total">${formatMinutes(week.total)}</div>
+            `
+            : "";
+
+          return `
+            <div class="week-item">
+              <div class="week-top">
+                <div class="week-main">
+                  <div>
+                    <div class="week-label">${week.label}</div>
+                    <div class="week-range">${week.range}</div>
+                  </div>
+                  <div class="week-right">
+                    <div class="pill soft">${week.entries} Session${week.entries !== 1 ? "s" : ""}</div>
+                    <div class="week-total">${formatMinutes(week.total)}</div>
+                  </div>
+                </div>
+                <button class="week-toggle" data-toggle-week="${week.label}" type="button">${isExpanded ? "Zuklappen" : "Aufklappen"}</button>
               </div>
+              <div class="bar">
+                <div class="bar-fill" style="width: ${(week.total / maxWeek) * 100}%"></div>
+              </div>
+              ${details}
             </div>
-            <div class="bar">
-              <div class="bar-fill" style="width: ${(week.total / maxWeek) * 100}%"></div>
-            </div>
-          </div>
-        `).join("");
+          `;
+        }).join("");
+
+        els.weekList.querySelectorAll("[data-toggle-week]").forEach((button) => {
+          button.addEventListener("click", () => {
+            toggleWeek(button.getAttribute("data-toggle-week"));
+          });
+        });
+
+        els.weekList.querySelectorAll("[data-delete-session-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            deleteSession(button.getAttribute("data-delete-session-id"));
+          });
+        });
       }
 
       function renderHeaderAndStats() {
@@ -615,6 +709,11 @@
         state.activeStart = null;
         saveState();
         render();
+      }
+
+      function toggleWeek(weekLabel) {
+        state.expandedWeeks[weekLabel] = !state.expandedWeeks[weekLabel];
+        renderWeeks();
       }
 
       function deleteSession(sessionId) {
