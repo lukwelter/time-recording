@@ -180,18 +180,12 @@
       }
 
       .delete-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 38px;
-        height: 38px;
         background: white;
         color: #b91c1c;
         border: 1px solid #fecaca;
-        padding: 0;
+        padding: 8px 12px;
         border-radius: 999px;
-        font-size: 16px;
-        line-height: 1;
+        font-size: 13px;
       }
 
       .delete-btn:hover:not(:disabled) {
@@ -591,7 +585,7 @@
                   </div>
                   <div class="session-actions">
                     <div class="pill">${formatMinutes(duration)}</div>
-                    <button class="delete-btn" data-delete-session-id="${s.id}" type="button" aria-label="Session löschen" title="Session löschen">🗑️</button>
+                    <button class="delete-btn" data-delete-session-id="${s.id}" type="button" aria-label="Session löschen" title="Session löschen">Löschen</button>
                   </div>
                 </div>
               </div>
@@ -631,7 +625,7 @@
                       </div>
                       <div class="week-session-actions">
                         <div class="pill">${formatMinutes(session.duration)}</div>
-                        <button class="delete-btn" data-delete-session-id="${session.id}" type="button" aria-label="Session löschen" title="Session löschen">🗑️</button>
+                        <button class="delete-btn" data-delete-session-id="${session.id}" type="button" aria-label="Session löschen" title="Session löschen">Löschen</button>
                       </div>
                     </div>
                   `).join("")}
