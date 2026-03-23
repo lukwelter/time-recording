@@ -180,11 +180,18 @@
       }
 
       .delete-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
         background: white;
         color: #b91c1c;
         border: 1px solid #fecaca;
-        padding: 8px 12px;
+        padding: 0;
         border-radius: 999px;
+        font-size: 16px;
+        line-height: 1;
       }
 
       .delete-btn:hover:not(:disabled) {
@@ -339,6 +346,7 @@
               <button class="btn-primary" id="startBtn">Start</button>
               <button class="btn-secondary" id="stopBtn" disabled>Stopp</button>
               <button class="btn-outline" id="exportBtn">Export</button>
+              <button class="btn-outline" id="importBtn">Restore</button>
               <button class="btn-outline" id="resetBtn">Alles zurücksetzen</button>
             </div>
 
@@ -399,6 +407,7 @@
         startBtn: document.getElementById("startBtn"),
         stopBtn: document.getElementById("stopBtn"),
         exportBtn: document.getElementById("exportBtn"),
+        importBtn: document.getElementById("importBtn"),
         resetBtn: document.getElementById("resetBtn"),
       };
 
@@ -582,7 +591,7 @@
                   </div>
                   <div class="session-actions">
                     <div class="pill">${formatMinutes(duration)}</div>
-                    <button class="delete-btn" data-delete-session-id="${s.id}" type="button">Löschen</button>
+                    <button class="delete-btn" data-delete-session-id="${s.id}" type="button" aria-label="Session löschen" title="Session löschen">🗑️</button>
                   </div>
                 </div>
               </div>
@@ -622,7 +631,7 @@
                       </div>
                       <div class="week-session-actions">
                         <div class="pill">${formatMinutes(session.duration)}</div>
-                        <button class="delete-btn" data-delete-session-id="${session.id}" type="button">Löschen</button>
+                        <button class="delete-btn" data-delete-session-id="${session.id}" type="button" aria-label="Session löschen" title="Session löschen">🗑️</button>
                       </div>
                     </div>
                   `).join("")}
@@ -725,6 +734,41 @@
         render();
       }
 
+      function importData(file) {
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const parsed = JSON.parse(String(reader.result || "{}"));
+            const importedSessions = Array.isArray(parsed.sessions)
+              ? parsed.sessions
+                  .filter((s) => s && s.start && s.end)
+                  .map((s) => ({
+                    ...s,
+                    id: s.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())),
+                  }))
+              : [];
+
+            const importedActiveStart = parsed.activeStart || null;
+            const confirmed = window.confirm(
+              "Möchtest du die aktuellen Daten durch die importierten Daten ersetzen?"
+            );
+            if (!confirmed) return;
+
+            state.sessions = importedSessions.sort((a, b) => new Date(b.start) - new Date(a.start));
+            state.activeStart = importedActiveStart;
+            state.expandedWeeks = {};
+            saveState();
+            render();
+            window.alert("Die Daten wurden erfolgreich wiederhergestellt.");
+          } catch {
+            window.alert("Die Datei konnte nicht gelesen werden. Bitte nutze eine gültige Export-Datei im JSON-Format.");
+          }
+        };
+        reader.readAsText(file);
+      }
+
       function exportData() {
         const payload = {
           exportedAt: new Date().toISOString(),
@@ -761,6 +805,15 @@
       els.startBtn.addEventListener("click", startTimer);
       els.stopBtn.addEventListener("click", stopTimer);
       els.exportBtn.addEventListener("click", exportData);
+      els.importBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json,.json";
+        input.addEventListener("change", (event) => {
+          importData(event.target.files && event.target.files[0]);
+        });
+        input.click();
+      });
       els.resetBtn.addEventListener("click", resetAll);
 
       loadState();
