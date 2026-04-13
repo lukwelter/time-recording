@@ -609,7 +609,7 @@
           return;
         }
 
-        const maxWeek = Math.max(...weekData.map((w) => w.total), 1);
+        const weeklyGoal = 8 * 60 * 60 * 1000;
         els.weekList.innerHTML = weekData.map((week) => {
           const isExpanded = Boolean(state.expandedWeeks[week.label]);
           const details = isExpanded
@@ -649,7 +649,7 @@
                 <button class="week-toggle" data-toggle-week="${week.label}" type="button">${isExpanded ? "Zuklappen" : "Aufklappen"}</button>
               </div>
               <div class="bar">
-                <div class="bar-fill" style="width: ${(week.total / maxWeek) * 100}%"></div>
+                <div class="bar-fill" style="width: ${Math.min((week.total / weeklyGoal) * 100, 100)}%"></div>
               </div>
               ${details}
             </div>
