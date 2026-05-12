@@ -278,6 +278,46 @@
         gap: 8px;
         flex-wrap: wrap;
       }
+
+      .manual-entry-form {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        align-items: end;
+        padding: 14px;
+        border: 1px dashed var(--border);
+        border-radius: 16px;
+        background: #f8fafc;
+      }
+
+      .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .form-field label {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
+      .form-field input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font: inherit;
+        background: white;
+        color: var(--text);
+      }
+
+      .manual-entry-button {
+        background: var(--dark);
+        color: white;
+        border-radius: 12px;
+        padding: 10px 12px;
+      }
       .bar {
         margin-top: 16px;
         height: 12px;
@@ -311,6 +351,7 @@
         .container { padding: 16px; }
         .timer-value { font-size: 42px; }
         .stats { grid-template-columns: 1fr; }
+        .manual-entry-form { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -448,8 +489,15 @@
       }
 
       function getWeekRangeFromLabel(label) {
-        const match = label.match(/^(\d{4})-KW(\d{2})$/);
-        if (!match) return label;
+        const range = getWeekRangeDatesFromLabel(label);
+        if (!range) return label;
+        const formatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" });
+        return `${formatter.format(range.monday)} – ${formatter.format(range.sunday)}`;
+      }
+
+      function getWeekRangeDatesFromLabel(label) {
+        const match = label.match(/^([0-9]{4})-KW([0-9]{2})$/);
+        if (!match) return null;
         const year = Number(match[1]);
         const week = Number(match[2]);
         const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
@@ -462,8 +510,15 @@
         }
         const sunday = new Date(monday);
         sunday.setUTCDate(monday.getUTCDate() + 6);
-        const formatter = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" });
-        return `${formatter.format(monday)} – ${formatter.format(sunday)}`;
+        return { monday, sunday };
+      }
+
+      function toDateInputValue(date) {
+        return new Intl.DateTimeFormat("sv-SE", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(date);
       }
 
       function loadState() {
@@ -612,9 +667,26 @@
         const weeklyGoal = 8 * 60 * 60 * 1000;
         els.weekList.innerHTML = weekData.map((week) => {
           const isExpanded = Boolean(state.expandedWeeks[week.label]);
+          const weekRangeDates = getWeekRangeDatesFromLabel(week.label);
+          const defaultManualDate = weekRangeDates ? toDateInputValue(weekRangeDates.monday) : toDateInputValue(new Date());
           const details = isExpanded
             ? `
               <div class="week-details">
+                <form class="manual-entry-form" data-manual-entry-week="${week.label}">
+                  <div class="form-field">
+                    <label for="manual-date-${week.label}">Datum</label>
+                    <input id="manual-date-${week.label}" name="date" type="date" value="${defaultManualDate}" required />
+                  </div>
+                  <div class="form-field">
+                    <label for="manual-start-${week.label}">Start</label>
+                    <input id="manual-start-${week.label}" name="start" type="time" required />
+                  </div>
+                  <div class="form-field">
+                    <label for="manual-end-${week.label}">Ende</label>
+                    <input id="manual-end-${week.label}" name="end" type="time" required />
+                  </div>
+                  <button class="manual-entry-button" type="submit">Zeit eintragen</button>
+                </form>
                 ${week.sessions.length === 0
                   ? '<div class="empty-box">In dieser Kalenderwoche gibt es noch keine gestoppten Sessions.</div>'
                   : week.sessions.map((session) => `
@@ -667,6 +739,13 @@
             deleteSession(button.getAttribute("data-delete-session-id"));
           });
         });
+
+        els.weekList.querySelectorAll("[data-manual-entry-week]").forEach((form) => {
+          form.addEventListener("submit", (event) => {
+            event.preventDefault();
+            addManualSession(form);
+          });
+        });
       }
 
       function renderHeaderAndStats() {
@@ -717,6 +796,46 @@
       function toggleWeek(weekLabel) {
         state.expandedWeeks[weekLabel] = !state.expandedWeeks[weekLabel];
         renderWeeks();
+      }
+
+      function addManualSession(form) {
+        const weekLabel = form.getAttribute("data-manual-entry-week");
+        const date = form.elements.date.value;
+        const startTime = form.elements.start.value;
+        const endTime = form.elements.end.value;
+
+        if (!date || !startTime || !endTime) {
+          window.alert("Bitte Datum, Startzeit und Endzeit ausfüllen.");
+          return;
+        }
+
+        const start = new Date(`${date}T${startTime}`);
+        const end = new Date(`${date}T${endTime}`);
+
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+          window.alert("Die eingegebene Zeit konnte nicht gelesen werden.");
+          return;
+        }
+
+        if (end <= start) {
+          window.alert("Die Endzeit muss nach der Startzeit liegen.");
+          return;
+        }
+
+        if (getWeekLabel(start) !== weekLabel) {
+          window.alert(`Das gewählte Datum gehört nicht zu ${weekLabel}. Bitte wähle ein Datum innerhalb dieser Kalenderwoche.`);
+          return;
+        }
+
+        state.sessions.unshift({
+          id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+          start: start.toISOString(),
+          end: end.toISOString(),
+        });
+
+        state.sessions.sort((a, b) => new Date(b.start) - new Date(a.start));
+        saveState();
+        render();
       }
 
       function deleteSession(sessionId) {
