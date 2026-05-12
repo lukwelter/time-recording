@@ -931,7 +931,10 @@
 
       loadState();
       render();
-      setInterval(render, 1000);
+      setInterval(() => {
+        renderHeaderAndStats();
+        renderSessions();
+      }, 1000);
     </script>
   </body>
 </html>
